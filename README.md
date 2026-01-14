@@ -393,7 +393,197 @@ Expanse uses **Galyleo** to launch Jupyter notebooks on compute nodes. This give
 
 ---
 
-## Understanding the Model
+## Understanding Deep Learning
+
+This section provides a beginner-friendly introduction to deep learning, helping you understand what's happening in the code and when deep learning is (or isn't) the right tool for your research.
+
+### What is Deep Learning?
+
+Deep learning is a subset of machine learning that uses **artificial neural networks** with multiple layers to learn patterns from data. The term "deep" refers to the number of layers in the network.
+
+```
+Traditional Programming:    Rules + Data → Answers
+Machine Learning:          Data + Answers → Rules (learned automatically)
+Deep Learning:             Data + Answers → Complex Rules (via neural networks)
+```
+
+#### The Biological Inspiration
+
+Neural networks are loosely inspired by the human brain:
+
+- **Neurons**: Basic computational units that receive inputs, process them, and produce outputs
+- **Weights**: Connection strengths between neurons (like synaptic strength)
+- **Layers**: Groups of neurons organized hierarchically
+- **Learning**: Adjusting weights based on errors (like strengthening frequently-used neural pathways)
+
+However, artificial neural networks are mathematical models—they don't actually replicate brain function.
+
+### How Neural Networks Learn
+
+#### 1. Forward Pass
+Data flows through the network, layer by layer, producing a prediction:
+
+```
+Input (27 features) → Hidden Layer 1 → Hidden Layer 2 → Hidden Layer 3 → Output (5 classes)
+     [batting data]      [256 neurons]    [128 neurons]    [64 neurons]    [out/1B/2B/3B/HR]
+```
+
+#### 2. Loss Calculation
+The prediction is compared to the actual outcome using a **loss function**. Higher loss = worse prediction.
+
+#### 3. Backward Pass (Backpropagation)
+The network calculates how much each weight contributed to the error and adjusts weights to reduce future errors. This is done using calculus (gradients).
+
+#### 4. Iteration
+Steps 1-3 repeat thousands of times across the dataset. Each complete pass through the data is called an **epoch**.
+
+### Key Deep Learning Concepts
+
+#### Activation Functions
+Without activation functions, a neural network would just be linear regression (no matter how many layers). Activation functions introduce **non-linearity**, allowing networks to learn complex patterns.
+
+```python
+# ReLU (Rectified Linear Unit) - most common
+# If input > 0, output = input
+# If input ≤ 0, output = 0
+def relu(x):
+    return max(0, x)
+```
+
+#### Layers in Our Model
+
+| Layer Type | Purpose | In Our Model |
+|------------|---------|--------------|
+| **Input Layer** | Receives raw features | 60 features (after preprocessing) |
+| **Hidden Layers** | Learn intermediate representations | 3 layers (sizes optimized by Optuna) |
+| **Output Layer** | Produces final prediction | 5 neurons (one per class) |
+| **Dropout Layers** | Prevent overfitting by randomly "turning off" neurons | Applied after each hidden layer |
+
+#### Hyperparameters vs. Parameters
+
+- **Parameters**: Learned automatically (weights and biases) — millions in large networks
+- **Hyperparameters**: Set by you (learning rate, number of layers, neurons per layer, dropout rate)
+
+Finding good hyperparameters is crucial. This project uses **Optuna** to automatically search for optimal values.
+
+### When to Use Deep Learning
+
+#### ✅ Deep Learning Excels When:
+
+| Scenario | Example in Sport Science |
+|----------|-------------------------|
+| **Large datasets** (10,000+ samples) | Years of player tracking data |
+| **Complex, non-linear relationships** | Predicting injury risk from multiple biomechanical factors |
+| **Unstructured data** | Video analysis, motion capture sequences |
+| **Feature interactions are unknown** | Discovering how variables combine to affect performance |
+| **High-dimensional data** | Hundreds of sensor readings per timestep |
+
+#### ❌ Consider Alternatives When:
+
+| Scenario | Better Alternative |
+|----------|-------------------|
+| **Small datasets** (< 1,000 samples) | Random Forest, Logistic Regression |
+| **Interpretability is critical** | Decision Trees, Linear Models |
+| **Simple, linear relationships** | Linear/Logistic Regression |
+| **Limited computational resources** | Traditional ML models |
+| **Need to explain to stakeholders** | Simpler models with clear coefficients |
+
+### Pros and Cons of Deep Learning
+
+#### Advantages
+
+| Pro | Description |
+|-----|-------------|
+| **Automatic feature learning** | No need to manually engineer complex feature interactions |
+| **Handles non-linearity** | Can model complex, non-linear relationships in data |
+| **Scales with data** | Performance improves as you add more training data |
+| **State-of-the-art performance** | Often achieves best results on complex tasks |
+| **Versatility** | Same architecture principles work across domains |
+| **Transfer learning** | Pre-trained models can be adapted to new tasks |
+
+#### Disadvantages
+
+| Con | Description |
+|-----|-------------|
+| **"Black box" nature** | Difficult to interpret why predictions are made |
+| **Data hungry** | Requires large amounts of labeled training data |
+| **Computationally expensive** | Needs GPUs for reasonable training times |
+| **Prone to overfitting** | Can memorize training data instead of learning patterns |
+| **Many hyperparameters** | Requires tuning learning rate, architecture, regularization |
+| **No uncertainty estimates** | Standard networks don't tell you how confident they are |
+
+### Overfitting: The Central Challenge
+
+**Overfitting** occurs when a model learns the training data too well, including its noise and peculiarities, and fails to generalize to new data.
+
+```
+Training Accuracy: 95%  ←  Model memorized the training data
+Test Accuracy: 60%      ←  Model fails on new data
+                           This gap indicates overfitting!
+```
+
+#### How We Prevent Overfitting in This Project
+
+| Technique | How It Works |
+|-----------|--------------|
+| **Train/Val/Test Split** | Evaluate on data the model hasn't seen during training |
+| **Dropout** | Randomly disable neurons during training, forcing redundancy |
+| **Early Stopping** | Stop training when validation performance stops improving |
+| **Weight Decay** | Penalize large weights, encouraging simpler models |
+| **Class Weighting** | Prevent model from just predicting the majority class |
+
+### Deep Learning vs. Traditional Machine Learning
+
+| Aspect | Traditional ML | Deep Learning |
+|--------|---------------|---------------|
+| **Feature Engineering** | Manual, domain expertise required | Automatic |
+| **Data Requirements** | Works with smaller datasets | Needs large datasets |
+| **Training Time** | Minutes on CPU | Hours/days without GPU |
+| **Interpretability** | Often interpretable | Usually "black box" |
+| **Computational Cost** | Low | High (benefits from GPU) |
+| **Performance Ceiling** | Limited by features | Scales with data/compute |
+
+### Understanding Our Model Architecture
+
+This project uses a **Multi-Layer Perceptron (MLP)**, the simplest type of deep neural network:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        MLP Architecture                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│   Input Layer          Hidden Layers              Output Layer       │
+│   (60 features)     (learned representations)     (5 classes)        │
+│                                                                      │
+│   ┌─────────┐       ┌─────────┐                  ┌─────────┐        │
+│   │ launch  │       │         │                  │   Out   │        │
+│   │ speed   │──┐    │  256    │                  ├─────────┤        │
+│   ├─────────┤  │    │ neurons │──┐               │ Single  │        │
+│   │ launch  │  │    │         │  │  ┌─────────┐  ├─────────┤        │
+│   │ angle   │──┼───▶│  ReLU   │──┼─▶│   128   │  │ Double  │        │
+│   ├─────────┤  │    │         │  │  │ neurons │  ├─────────┤        │
+│   │  pitch  │  │    │ Dropout │  │  │  ReLU   │  │ Triple  │        │
+│   │  speed  │──┼───▶│         │──┼─▶│ Dropout │─▶├─────────┤        │
+│   ├─────────┤  │    └─────────┘  │  └─────────┘  │Home Run │        │
+│   │   ...   │  │                 │       │       └─────────┘        │
+│   │(57 more)│──┘                 │       │            ▲             │
+│   └─────────┘                    │       ▼            │             │
+│                                  │  ┌─────────┐      │             │
+│                                  └─▶│   64    │──────┘             │
+│                                     │ neurons │                     │
+│                                     │  ReLU   │                     │
+│                                     │ Dropout │                     │
+│                                     └─────────┘                     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### Why This Architecture?
+
+- **MLP**: Good for tabular data (structured rows and columns)
+- **3 Hidden Layers**: Deep enough to learn complex patterns, not so deep that training becomes difficult
+- **Decreasing Layer Sizes**: Progressively compress information toward the final decision
+- **Dropout**: Prevents over-reliance on any single neuron
 
 ### Data Pipeline
 
@@ -426,12 +616,30 @@ PyTorch DataLoaders
    - Accuracy and macro-F1 on train/val/test sets
    - Confusion matrix visualization
 
-### Key Techniques
+### Key Techniques Used
 
-- **Class Weighting**: Handles imbalanced data (many more outs than triples)
-- **Early Stopping**: Prevents overfitting
-- **Gradient Clipping**: Stabilizes training
-- **AdamW Optimizer**: Modern optimizer with decoupled weight decay
+| Technique | Purpose | How It Helps |
+|-----------|---------|--------------|
+| **Class Weighting** | Handle imbalanced data | Prevents model from only predicting "out" (the most common outcome) |
+| **Early Stopping** | Prevent overfitting | Stops training when validation performance plateaus |
+| **Gradient Clipping** | Stabilize training | Prevents exploding gradients that can derail learning |
+| **AdamW Optimizer** | Efficient training | Modern optimizer that adapts learning rate per-parameter |
+| **Optuna** | Hyperparameter tuning | Automatically finds good hyperparameters |
+
+### Glossary of Deep Learning Terms
+
+| Term | Definition |
+|------|------------|
+| **Epoch** | One complete pass through the training dataset |
+| **Batch** | A subset of training data processed together (we use 1,024 samples) |
+| **Learning Rate** | How big of a step to take when updating weights (too high = unstable, too low = slow) |
+| **Loss** | A number measuring how wrong the predictions are (lower = better) |
+| **Gradient** | The direction and magnitude to adjust weights to reduce loss |
+| **Backpropagation** | Algorithm to calculate gradients for all weights |
+| **Regularization** | Techniques to prevent overfitting (dropout, weight decay) |
+| **Validation Set** | Data used to tune hyperparameters and monitor overfitting |
+| **Test Set** | Data used only for final evaluation (never seen during training) |
+| **Inference** | Using a trained model to make predictions on new data |
 
 ---
 
