@@ -229,7 +229,7 @@ Once approved:
 5. Provide a brief justification
 
 **Exchange rates** (approximate):
-- 1 GPU-hour on Expanse ≈ 1 ACCESS credit
+- 1 GPU-hour on Expanse ≈ 52 ACCESS credit
 - Check current rates at [allocations.access-ci.org](https://allocations.access-ci.org/)
 
 ### About SDSC Expanse
