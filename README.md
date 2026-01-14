@@ -365,7 +365,7 @@ Expanse uses **Galyleo** to launch Jupyter notebooks on compute nodes. This give
    ```
 
    **Parameter explanations**:
-   - `--account`: Your ACCESS allocation account (e.g., `css105`)
+   - `--account`: Your ACCESS allocation account (e.g., `aaa111`)
    - `--partition gpu-shared`: Use shared GPU partition (cost-effective)
    - `--nodes 1`: Request one compute node
    - `--cpus 8`: Request 8 CPU cores
