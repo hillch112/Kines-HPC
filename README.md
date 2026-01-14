@@ -96,7 +96,7 @@ A 3-layer MLP (Multi-Layer Perceptron) with:
 
 ## Performance Comparison
 
-> **Note**: Fill in your actual timing results after running both locally and on Expanse.
+> **Note**: Still need to update.
 
 | Environment | Hardware | Time per Epoch | Total Training Time (40 epochs) |
 |-------------|----------|----------------|--------------------------------|
