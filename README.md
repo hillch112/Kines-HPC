@@ -96,7 +96,7 @@ A 3-layer MLP (Multi-Layer Perceptron) with:
 
 ## Performance Comparison
 
-> **Note**: Still need to update.
+> **Note**: Fill in your actual timing results after running both locally and on Expanse.
 
 | Environment | Hardware | Time per Epoch | Total Training Time (40 epochs) |
 |-------------|----------|----------------|--------------------------------|
@@ -229,7 +229,7 @@ Once approved:
 5. Provide a brief justification
 
 **Exchange rates** (approximate):
-- 1 GPU-hour on Expanse ≈ 52 ACCESS credit
+- 1 GPU-hour on Expanse ≈ 1 ACCESS credit
 - Check current rates at [allocations.access-ci.org](https://allocations.access-ci.org/)
 
 ### About SDSC Expanse
@@ -335,9 +335,13 @@ rsync -avz --progress local_folder/ your_username@login.expanse.sdsc.edu:/expans
 
 ## Running the Project on Expanse
 
-### Launching an Interactive Jupyter Session
+Expanse offers two ways to run your code:
+1. **Interactive sessions** (Jupyter notebooks via Galyleo) - great for development and exploration
+2. **Batch jobs** (SLURM scripts) - ideal for long-running training jobs
 
-Expanse uses **Galyleo** to launch Jupyter notebooks on compute nodes. This gives you a notebook interface backed by GPU resources.
+### Option 1: Interactive Jupyter Session (Galyleo)
+
+This is what you've been using. It's great for development, debugging, and exploration.
 
 1. **SSH into Expanse**:
    ```bash
@@ -364,32 +368,317 @@ Expanse uses **Galyleo** to launch Jupyter notebooks on compute nodes. This give
      -s /cm/shared/apps/containers/singularity/pytorch/pytorch-latest.sif
    ```
 
-   **Parameter explanations**:
-   - `--account`: Your ACCESS allocation account (e.g., `aaa111`)
-   - `--partition gpu-shared`: Use shared GPU partition (cost-effective)
-   - `--nodes 1`: Request one compute node
-   - `--cpus 8`: Request 8 CPU cores
-   - `--memory 64`: Request 64 GB RAM
-   - `--time-limit 06:00:00`: Maximum 6 hours runtime
-   - `--gpus 1`: Request 1 GPU
-   - `-s`: Path to the PyTorch Singularity container
-
 4. **Access the notebook**:
-   - Galyleo will output a URL (e.g., `https://...`)
+   - Galyleo will output a URL
    - Open this URL in your browser
    - Navigate to your notebook file
 
-### Running the Notebook
+---
 
-1. Open `HPC_Outcomes.ipynb` in Jupyter
-2. Verify GPU is available:
-   ```python
-   import torch
-   print(f"CUDA available: {torch.cuda.is_available()}")
-   print(f"Device: {torch.cuda.get_device_name(0)}")
+### Option 2: Batch Job Submission (SLURM)
+
+Batch jobs are the preferred method for:
+- Long-running training jobs
+- Jobs you want to "set and forget"
+- Running overnight or over weekends
+- Reproducible, scriptable workflows
+
+#### Why Use Batch Jobs?
+
+| Interactive Session | Batch Job |
+|---------------------|-----------|
+| Must keep browser open | Runs in background |
+| Connection drops = job lost | Survives disconnections |
+| Good for debugging | Good for production runs |
+| Limited time (usually 6-8 hrs) | Can request longer times |
+| Harder to reproduce | Fully scriptable & reproducible |
+
+#### Step-by-Step: Running a Batch Job
+
+##### Step 1: Convert Your Notebook to a Python Script
+
+First, you need to convert your Jupyter notebook to a standalone Python script.
+
+**Option A: Export from Jupyter**
+- In Jupyter: File → Download as → Python (.py)
+
+**Option B: Use nbconvert on the command line**
+```bash
+jupyter nbconvert --to script HPC_Outcomes.ipynb
+```
+
+This creates `HPC_Outcomes.py`. You may need to clean it up by removing any `get_ipython()` calls or magic commands.
+
+**Option C: Create a clean Python script from scratch**
+
+Create a file called `train_model.py`:
+
+```python
+#!/usr/bin/env python3
+"""
+Kines-HPC: Batted Ball Outcome Prediction
+Batch training script for SDSC Expanse
+"""
+
+import os
+import random
+import numpy as np
+import pandas as pd
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend for batch jobs
+import matplotlib.pyplot as plt
+
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.model_selection import train_test_split
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
+
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
+
+import optuna
+from optuna.pruners import MedianPruner
+
+# ============================================================
+# CONFIGURATION
+# ============================================================
+SEED = 42
+N_TRIALS = 20          # Optuna hyperparameter search trials
+EPOCHS = 40            # Maximum training epochs
+PATIENCE = 6           # Early stopping patience
+BATCH_SIZE = 1024
+
+# Set file paths - UPDATE THESE FOR YOUR SETUP
+DATA_PATH = "/expanse/lustre/scratch/YOUR_USERNAME/temp_project/statcast_4years.csv"
+OUTPUT_DIR = "/expanse/lustre/scratch/YOUR_USERNAME/temp_project/outputs"
+
+# Create output directory if it doesn't exist
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# ============================================================
+# REPRODUCIBILITY
+# ============================================================
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+torch.cuda.manual_seed_all(SEED)
+
+# ============================================================
+# DEVICE SETUP
+# ============================================================
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {DEVICE}")
+if torch.cuda.is_available():
+    print(f"GPU: {torch.cuda.get_device_name(0)}")
+
+# ============================================================
+# Your training code goes here...
+# (Copy the rest from your notebook)
+# ============================================================
+
+# ... [rest of your training code]
+
+print("Training complete!")
+print(f"Results saved to: {OUTPUT_DIR}")
+```
+
+##### Step 2: Create a SLURM Batch Script
+
+Create a file called `run_training.slurm`:
+
+```bash
+#!/bin/bash
+#SBATCH --job-name="kines-hpc"
+#SBATCH --output="kines-hpc.%j.%N.out"
+#SBATCH --error="kines-hpc.%j.%N.err"
+#SBATCH --partition=gpu-shared
+#SBATCH --nodes=1
+#SBATCH --gpus=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=64G
+#SBATCH --account=YOUR_ACCOUNT_ID
+#SBATCH --time=06:00:00
+#SBATCH --export=ALL
+
+# ============================================================
+# SLURM BATCH SCRIPT FOR KINES-HPC
+# ============================================================
+# This script submits a batch job to train the neural network
+# on Expanse's GPU nodes using a Singularity container.
+# ============================================================
+
+echo "========================================"
+echo "Job started: $(date)"
+echo "Job ID: $SLURM_JOB_ID"
+echo "Node: $SLURMD_NODENAME"
+echo "========================================"
+
+# Change to your project directory
+cd /expanse/lustre/scratch/$USER/temp_project
+
+# Load the Singularity module
+module purge
+module load singularitypro
+
+# Define the container path
+CONTAINER="/cm/shared/apps/containers/singularity/pytorch/pytorch-latest.sif"
+
+# Run the training script inside the container
+# --nv enables NVIDIA GPU support
+# --bind mounts the necessary filesystems
+singularity exec --nv \
+    --bind /expanse,/scratch,/cvmfs \
+    $CONTAINER \
+    python train_model.py
+
+echo "========================================"
+echo "Job finished: $(date)"
+echo "========================================"
+```
+
+##### Step 3: Upload Your Files to Expanse
+
+```bash
+# From your local machine, upload the script files
+scp train_model.py your_username@login.expanse.sdsc.edu:/expanse/lustre/scratch/your_username/temp_project/
+scp run_training.slurm your_username@login.expanse.sdsc.edu:/expanse/lustre/scratch/your_username/temp_project/
+```
+
+##### Step 4: Submit the Batch Job
+
+SSH into Expanse and submit the job:
+
+```bash
+# SSH into Expanse
+ssh your_username@login.expanse.sdsc.edu
+
+# Navigate to your project directory
+cd /expanse/lustre/scratch/$USER/temp_project
+
+# Submit the batch job
+sbatch run_training.slurm
+```
+
+You'll see output like:
+```
+Submitted batch job 12345678
+```
+
+##### Step 5: Monitor Your Job
+
+**Check job status:**
+```bash
+# See all your jobs
+squeue -u $USER
+
+# Output example:
+#   JOBID  PARTITION     NAME     USER    ST   TIME  NODES NODELIST(REASON)
+# 12345678 gpu-shared kines-hpc  youruser  R   5:23      1 exp-7-59
+```
+
+**Job state codes:**
+| Code | Meaning |
+|------|---------|
+| PD | Pending (waiting for resources) |
+| R | Running |
+| CG | Completing |
+| CD | Completed |
+| F | Failed |
+| CA | Cancelled |
+
+**Check estimated start time (if pending):**
+```bash
+squeue -u $USER --start
+```
+
+**View job details:**
+```bash
+scontrol show job 12345678
+```
+
+**Cancel a job:**
+```bash
+scancel 12345678
+```
+
+##### Step 6: View Output and Errors
+
+While the job is running (or after it completes), you can view the output:
+
+```bash
+# View standard output (updates in real-time)
+tail -f kines-hpc.*.out
+
+# View error output
+tail -f kines-hpc.*.err
+
+# View the complete output file after job finishes
+cat kines-hpc.12345678.exp-7-59.out
+```
+
+##### Step 7: Retrieve Your Results
+
+After the job completes, download your results:
+
+```bash
+# From your local machine
+scp -r your_username@login.expanse.sdsc.edu:/expanse/lustre/scratch/your_username/temp_project/outputs/ ./local_outputs/
+```
+
+---
+
+#### SLURM Script Explained
+
+Here's what each line in the SLURM script does:
+
+```bash
+#!/bin/bash                        # Use bash shell
+#SBATCH --job-name="kines-hpc"     # Name shown in queue
+#SBATCH --output="kines-hpc.%j.%N.out"  # Stdout file (%j=job ID, %N=node name)
+#SBATCH --error="kines-hpc.%j.%N.err"   # Stderr file
+#SBATCH --partition=gpu-shared     # GPU partition (shared = cost effective)
+#SBATCH --nodes=1                  # Number of compute nodes
+#SBATCH --gpus=1                   # Number of GPUs
+#SBATCH --cpus-per-task=8          # CPU cores
+#SBATCH --mem=64G                  # Memory
+#SBATCH --account=YOUR_ACCOUNT_ID  # Your allocation account
+#SBATCH --time=06:00:00           # Max runtime (HH:MM:SS)
+#SBATCH --export=ALL              # Export environment variables
+```
+
+#### Common SLURM Commands Reference
+
+| Command | Description |
+|---------|-------------|
+| `sbatch script.slurm` | Submit a batch job |
+| `squeue -u $USER` | Check your job queue |
+| `scancel JOBID` | Cancel a job |
+| `sinfo -p gpu-shared` | Check partition status |
+| `sacct -j JOBID` | View job accounting info |
+| `seff JOBID` | View job efficiency (after completion) |
+
+#### Tips for Batch Jobs
+
+1. **Test interactively first**: Debug your code in an interactive session before submitting batch jobs.
+
+2. **Start with short times**: Request 1-2 hours initially to make sure everything works, then increase.
+
+3. **Save checkpoints**: Modify your code to save model checkpoints periodically in case the job times out.
+
+4. **Use `matplotlib.use('Agg')`**: This prevents display errors in batch mode (no screen available).
+
+5. **Check your paths**: Make sure all file paths are absolute, not relative.
+
+6. **Monitor GPU memory**: If you get CUDA out-of-memory errors, try reducing batch size.
+
+7. **Email notifications** (optional): Add these lines to get email updates:
+   ```bash
+   #SBATCH --mail-user=your_email@institution.edu
+   #SBATCH --mail-type=BEGIN,END,FAIL
    ```
-3. Run all cells (Cell → Run All)
-4. Monitor training progress and note timing for comparison
 
 ---
 
