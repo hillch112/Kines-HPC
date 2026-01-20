@@ -4,9 +4,6 @@
 # In[16]:
 
 
-pip install optuna
-
-
 # In[17]:
 
 
@@ -14,6 +11,8 @@ import os
 import random
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg') 
 import matplotlib.pyplot as plt
 
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
@@ -53,17 +52,21 @@ EPOCHS_FINAL    = 25          # longer run for final training
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {DEVICE}")
+# Set file paths - UPDATE THESE FOR YOUR SETUP
+DATA_PATH = "/expanse/lustre/scratch/chill2/temp_project/statcast_4years.csv"
+OUTPUT_DIR = "/expanse/lustre/scratch/chill2/temp_project/outputs"
 
+# Create output directory if it doesn't exist
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # In[19]:
 
 
 print("\nSECTION 1: LOADING DATA FROM CSV")
-csv_path = "/Users/006490246/Desktop/statcast_4years.csv"
-print("Looking for:", csv_path)
-print("Exists?", os.path.exists(csv_path))
+print("Looking for:", DATA_PATH)
+print("Exists?", os.path.exists(DATA_PATH))
 
-df = pd.read_csv(csv_path)
+df = pd.read_csv(DATA_PATH)
 
 
 print(f"Loaded data shape: {df.shape}")
@@ -731,6 +734,7 @@ print("\nAll done.")
 
 # In[ ]:
 
-
+print("Training complete!")
+print(f"Results saved to: {OUTPUT_DIR}")
 
 
