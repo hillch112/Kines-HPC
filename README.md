@@ -96,13 +96,24 @@ A 3-layer MLP (Multi-Layer Perceptron) with:
 
 ## Performance Comparison
 
-> **Note**: Fill in your actual timing results after running both locally and on Expanse.
+| Environment | Hardware | Total Training Time |
+|-------------|----------|---------------------|
+| Google Colab | T4 GPU | 56 minutes |
+| Expanse | NVIDIA V100 (32GB) | 9 minutes |
+| **Speedup** | | **~6x faster** |
 
-| Environment | Hardware | Time per Epoch | Total Training Time (40 epochs) |
-|-------------|----------|----------------|--------------------------------|
-| Local (CPU) | _Your CPU model_ | _X min_ | _X hours_ |
-| Expanse (GPU) | NVIDIA V100 (32GB) | _X sec_ | _X min_ |
-| **Speedup** | | | **_X times faster_** |
+### What This Means
+
+Using SDSC Expanse's V100 GPU, we achieved a **6x speedup** compared to Google Colab's T4 GPU. This is a relatively straightforward deep learning task using a Multi-Layer Perceptron (MLP) on tabular data.
+
+**For more computationally intensive projects, the speedup would be even more dramatic:**
+
+- **Computer vision** (CNNs processing images/video): 10-50x speedup
+- **Natural language processing** (transformer models): 10-100x speedup
+- **Biomechanical simulations**: Orders of magnitude faster
+- **Large-scale hyperparameter searches**: Linear scaling with more GPUs
+
+The V100 GPUs on Expanse have 32GB of memory (compared to Colab's 15GB T4), allowing you to train larger models and use bigger batch sizes, which further improves training efficiency.
 
 ### Resource Configuration Used on Expanse
 
@@ -110,7 +121,7 @@ A 3-layer MLP (Multi-Layer Perceptron) with:
 - **GPUs**: 1x NVIDIA V100 (32GB)
 - **CPUs**: 8 cores
 - **Memory**: 64 GB
-- **Time**: 6 hours
+- **Time**: 6 hours (requested), ~9 minutes (actual)
 
 ---
 
@@ -119,7 +130,9 @@ A 3-layer MLP (Multi-Layer Perceptron) with:
 ```
 Kines-HPC/
 ├── README.md                    # This file
-├── HPC_Outcomes.ipynb          # Main training notebook
+├── HPC_Outcomes.ipynb          # Main training notebook (for interactive sessions)
+├── HPC_Outcomes.py             # Python script version (for batch job submission)
+├── run_training.slurm          # SLURM batch job script for Expanse
 ├── data_collection.ipynb       # Notebook showing how Statcast data was collected
 ├── statcast_4years.csv         # Dataset (2022-2025 Statcast data)
 ├── requirements.txt            # Python dependencies
@@ -128,6 +141,8 @@ Kines-HPC/
     ├── validation_metrics.png
     └── confusion_matrix_test.png
 ```
+
+**Note:** `HPC_Outcomes.py` and `run_training.slurm` are used for batch job submission on Expanse. See [Option 2: Batch Job Submission](#option-2-batch-job-submission-slurm) for details.
 
 ---
 
@@ -302,7 +317,18 @@ You should see the Expanse welcome message and command prompt.
 
 ### Transferring Files
 
-#### Using SCP (Secure Copy):
+#### Option 1: Expanse User Portal (Easiest)
+
+The **Expanse User Portal** provides a Dropbox-like web interface for uploading and managing files:
+
+1. Go to [https://portal.expanse.sdsc.edu](https://portal.expanse.sdsc.edu) (accessible from the [Expanse homepage](https://www.sdsc.edu/systems/expanse/index.html))
+2. Log in with your ACCESS credentials
+3. Navigate to your scratch directory
+4. Drag and drop files to upload
+
+This is the easiest method for beginners and works well for moderately sized files.
+
+#### Option 2: Using SCP (Secure Copy)
 
 ```bash
 # Upload a file to Expanse
@@ -315,7 +341,7 @@ scp your_username@login.expanse.sdsc.edu:/path/to/remote_file.csv ./local_direct
 scp -r local_folder/ your_username@login.expanse.sdsc.edu:/expanse/lustre/scratch/your_username/temp_project/
 ```
 
-#### Using rsync (recommended for large transfers):
+#### Option 3: Using rsync (recommended for large transfers)
 
 ```bash
 # Sync a directory (only transfers changed files)
@@ -834,42 +860,16 @@ Test Accuracy: 60%      ←  Model fails on new data
 
 ### Understanding Our Model Architecture
 
-This project uses a **Multi-Layer Perceptron (MLP)**, the simplest type of deep neural network:
+This project uses a **Multi-Layer Perceptron (MLP)**, the simplest type of deep neural network. MLPs are well-suited for tabular data (structured rows and columns) like our Statcast dataset.
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        MLP Architecture                              │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│   Input Layer          Hidden Layers              Output Layer       │
-│   (60 features)     (learned representations)     (5 classes)        │
-│                                                                      │
-│   ┌─────────┐       ┌─────────┐                  ┌─────────┐        │
-│   │ launch  │       │         │                  │   Out   │        │
-│   │ speed   │──┐    │  256    │                  ├─────────┤        │
-│   ├─────────┤  │    │ neurons │──┐               │ Single  │        │
-│   │ launch  │  │    │         │  │  ┌─────────┐  ├─────────┤        │
-│   │ angle   │──┼───▶│  ReLU   │──┼─▶│   128   │  │ Double  │        │
-│   ├─────────┤  │    │         │  │  │ neurons │  ├─────────┤        │
-│   │  pitch  │  │    │ Dropout │  │  │  ReLU   │  │ Triple  │        │
-│   │  speed  │──┼───▶│         │──┼─▶│ Dropout │─▶├─────────┤        │
-│   ├─────────┤  │    └─────────┘  │  └─────────┘  │Home Run │        │
-│   │   ...   │  │                 │       │       └─────────┘        │
-│   │(57 more)│──┘                 │       │            ▲             │
-│   └─────────┘                    │       ▼            │             │
-│                                  │  ┌─────────┐      │             │
-│                                  └─▶│   64    │──────┘             │
-│                                     │ neurons │                     │
-│                                     │  ReLU   │                     │
-│                                     │ Dropout │                     │
-│                                     └─────────┘                     │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
-```
+**Our architecture:**
+- **Input Layer**: 60 features (after preprocessing)
+- **Hidden Layer 1**: ~256 neurons with ReLU activation and Dropout
+- **Hidden Layer 2**: ~128 neurons with ReLU activation and Dropout
+- **Hidden Layer 3**: ~64 neurons with ReLU activation and Dropout
+- **Output Layer**: 5 neurons (one per class: Out, Single, Double, Triple, Home Run)
 
-#### Why This Architecture?
-
-- **MLP**: Good for tabular data (structured rows and columns)
+**Why this design?**
 - **3 Hidden Layers**: Deep enough to learn complex patterns, not so deep that training becomes difficult
 - **Decreasing Layer Sizes**: Progressively compress information toward the final decision
 - **Dropout**: Prevents over-reliance on any single neuron
@@ -942,7 +942,7 @@ This project was developed as part of the [Cyberinfrastructure Professional (CIP
 
 The CIP Fellows Program is supported by NSF Award #2230127 and aims to train CI professionals with interdisciplinary skills to support scientific research teams.
 
-**Computing Resources**: This work used the Expanse system at the San Diego Supercomputer Center through allocation [YOUR_ALLOCATION_ID] from the Advanced Cyberinfrastructure Coordination Ecosystem: Services & Support (ACCESS) program, which is supported by National Science Foundation grants #2138259, #2138286, #2138307, #2137603, and #2138296.
+**Computing Resources**: This work used the Expanse system at the San Diego Supercomputer Center through the Advanced Cyberinfrastructure Coordination Ecosystem: Services & Support (ACCESS) program, which is supported by National Science Foundation grants #2138259, #2138286, #2138307, #2137603, and #2138296.
 
 **Data Source**: MLB Statcast data accessed via the [pybaseball](https://github.com/jldbc/pybaseball) Python library.
 
