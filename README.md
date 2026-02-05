@@ -160,7 +160,7 @@ Kines-HPC/
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/yourusername/Kines-HPC.git
+   git clone https://github.com/hillch112/Kines-HPC.git
    cd Kines-HPC
    ```
 
